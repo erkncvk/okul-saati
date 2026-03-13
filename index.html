@@ -24,7 +24,7 @@
   .clock-screen{width:100vw;height:100vh;position:relative;overflow:hidden;}
 
   .draggable{
-    position:absolute;cursor:grab;touch-action:none;
+    position:absolute;cursor:grab;touch-action:none;transform-origin:center center;
     user-select:none;z-index:5;transition:outline .2s;
   }
   .draggable:hover{
@@ -577,6 +577,7 @@ resizeClock();
 /* ─── Drag & Drop ─── */
 const DRAG_KEY='okul_saati_positions';
 const DRAG_IDS=['dragDigital','dragDate','dragClock','dragEvents'];
+let scales={};
 
 function getDefaultPositions(){
   const vw=window.innerWidth,vh=window.innerHeight;
@@ -598,22 +599,25 @@ function getDefaultPositions(){
 function saveDragPositions(){
   const pos={};
   DRAG_IDS.forEach(id=>{const el=document.getElementById(id);
-    pos[id]={left:parseInt(el.style.left)||0,top:parseInt(el.style.top)||0};});
+    pos[id]={left:parseInt(el.style.left)||0,top:parseInt(el.style.top)||0,scale:scales[id]||1};});
   try{localStorage.setItem(DRAG_KEY,JSON.stringify(pos));}catch(e){}
 }
 
 function loadDragPositions(){
-  try{const r=localStorage.getItem(DRAG_KEY);return r?JSON.parse(r):null;}catch(e){return null;}
+  try{const r=localStorage.getItem(DRAG_KEY);if(!r)return null;const pos=JSON.parse(r);
+    DRAG_IDS.forEach(id=>{if(pos[id]&&pos[id].scale)scales[id]=pos[id].scale;});
+    return pos;}catch(e){return null;}
 }
 
 function applyPositions(pos){
   if(!pos) pos=getDefaultPositions();
   DRAG_IDS.forEach(id=>{const el=document.getElementById(id);
-    if(pos[id]){el.style.left=pos[id].left+'px';el.style.top=pos[id].top+'px';}});
+    if(pos[id]){el.style.left=pos[id].left+'px';el.style.top=pos[id].top+'px';}
+    el.style.transform='scale('+(scales[id]||1)+')';});
 }
 
 function resetPositions(){
-  localStorage.removeItem(DRAG_KEY);
+  localStorage.removeItem(DRAG_KEY);scales={};
   applyPositions(getDefaultPositions());
 }
 
@@ -636,26 +640,51 @@ function initDrag(){
   applyPositions(loadDragPositions()||getDefaultPositions());
   DRAG_IDS.forEach(id=>{
     const el=document.getElementById(id);
-    let dragging=false,ox=0,oy=0;
+    const ptrs=new Map();
+    let mode='idle',ox=0,oy=0,pinchD0=0,pinchS0=1;
+
     el.addEventListener('pointerdown',e=>{
       if(e.target.closest('button,input,select,a'))return;
-      e.preventDefault();dragging=true;
-      el.setPointerCapture(e.pointerId);el.classList.add('dragging');
-      const r=el.getBoundingClientRect();ox=e.clientX-r.left;oy=e.clientY-r.top;
+      e.preventDefault();ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      if(ptrs.size===1){
+        mode='drag';el.setPointerCapture(e.pointerId);el.classList.add('dragging');
+        const r=el.getBoundingClientRect();ox=e.clientX-r.left;oy=e.clientY-r.top;
+      }else if(ptrs.size===2){
+        if(mode==='drag'){for(const pid of ptrs.keys()){if(pid!==e.pointerId)try{el.releasePointerCapture(pid);}catch(ex){}}el.classList.remove('dragging');}
+        mode='pinch';const pts=[...ptrs.values()];
+        pinchD0=Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y)||1;pinchS0=scales[id]||1;
+        el.setPointerCapture(e.pointerId);
+      }
     });
+
     el.addEventListener('pointermove',e=>{
-      if(!dragging)return;e.preventDefault();
-      const p=el.parentElement.getBoundingClientRect();
-      let nl=e.clientX-p.left-ox,nt=e.clientY-p.top-oy;
-      nl=Math.max(-el.offsetWidth*.4,Math.min(nl,p.width-el.offsetWidth*.6));
-      nt=Math.max(0,Math.min(nt,p.height-el.offsetHeight*.3));
-      el.style.left=nl+'px';el.style.top=nt+'px';
+      if(!ptrs.has(e.pointerId))return;e.preventDefault();
+      ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      if(mode==='pinch'&&ptrs.size>=2){
+        const pts=[...ptrs.values()];const dist=Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y);
+        scales[id]=Math.max(0.4,Math.min(2.5,pinchS0*(dist/pinchD0)));
+        el.style.transform='scale('+scales[id]+')';
+      }else if(mode==='drag'){
+        const p=el.parentElement.getBoundingClientRect();
+        let nl=e.clientX-p.left-ox,nt=e.clientY-p.top-oy;
+        nl=Math.max(-el.offsetWidth*.4,Math.min(nl,p.width-el.offsetWidth*.6));
+        nt=Math.max(0,Math.min(nt,p.height-el.offsetHeight*.3));
+        el.style.left=nl+'px';el.style.top=nt+'px';
+      }
     });
-    el.addEventListener('pointerup',e=>{
-      if(!dragging)return;dragging=false;
-      el.classList.remove('dragging');el.releasePointerCapture(e.pointerId);
-      saveDragPositions();
-    });
+
+    function endPtr(e){ptrs.delete(e.pointerId);try{el.releasePointerCapture(e.pointerId);}catch(ex){}
+      if(ptrs.size===0){if(mode!=='idle'){el.classList.remove('dragging');saveDragPositions();}mode='idle';}
+      else if(ptrs.size===1&&mode==='pinch'){mode='idle';saveDragPositions();}
+    }
+    el.addEventListener('pointerup',endPtr);
+    el.addEventListener('pointercancel',endPtr);
+
+    el.addEventListener('wheel',e=>{e.preventDefault();
+      const d=e.deltaY>0?-0.05:0.05;scales[id]=Math.max(0.4,Math.min(2.5,(scales[id]||1)+d));
+      el.style.transform='scale('+scales[id]+')';saveDragPositions();
+    },{passive:false});
+
     el.addEventListener('contextmenu',e=>e.preventDefault());
   });
 }
