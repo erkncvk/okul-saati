@@ -21,14 +21,20 @@
     color:var(--text);display:flex;align-items:center;justify-content:center;
   }
 
-  .clock-screen{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;position:relative;}
+  .clock-screen{width:100vw;height:100vh;position:relative;overflow:hidden;}
 
-  .top-right-panel{
-    position:absolute;top:20px;right:80px;
-    display:flex;flex-direction:column;align-items:flex-end;gap:16px;
-    max-width:340px;z-index:10;
+  .draggable{
+    position:absolute;cursor:grab;touch-action:none;
+    user-select:none;z-index:5;transition:outline .2s;
   }
-  .datetime-block{text-align:right;}
+  .draggable:hover{
+    outline:2px dashed rgba(255,255,255,0.2);outline-offset:6px;border-radius:12px;
+  }
+  .draggable.dragging{
+    cursor:grabbing;z-index:50;opacity:.85;
+    outline:2px solid rgba(66,165,245,0.5);outline-offset:6px;border-radius:12px;
+  }
+  .drag-date{text-align:right;}
 
   /* Left: clock column */
   .clock-col{display:flex;flex-direction:column;align-items:center;gap:14px;}
@@ -117,6 +123,16 @@
     transition:all .3s;box-shadow:0 4px 16px rgba(0,0,0,0.3);
   }
   .fs-btn:hover{background:rgba(50,60,75,0.95);transform:scale(1.05);}
+
+  .reset-btn{
+    position:fixed;top:20px;left:80px;z-index:100;
+    width:50px;height:50px;border-radius:14px;
+    background:var(--panel-bg);border:2px solid rgba(255,255,255,0.1);
+    color:#fff;font-size:1.3rem;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:all .3s;box-shadow:0 4px 16px rgba(0,0,0,0.3);
+  }
+  .reset-btn:hover{background:rgba(50,60,75,0.95);transform:scale(1.05);}
 
   /* Side panel */
   .side-panel{
@@ -224,29 +240,21 @@
 
   /* ── Responsive ── */
   @media(max-width:768px){
-    html,body{height:auto;overflow-y:auto;}
-    .clock-screen{
-      flex-direction:column;height:auto;min-height:100vh;
-      padding:60px 16px 80px;gap:16px;
-    }
-    .top-right-panel{
-      position:static;align-items:center;width:100%;max-width:100%;order:2;
-    }
-    .datetime-block{text-align:center;}
-    .clock-col{order:1;}
     .status-badge{font-size:1rem;padding:8px 20px;}
     .digital-clock{font-size:2rem;}
     .date-display{font-size:1.1rem;}
-    .day-name{font-size:.9rem;}
+    .day-name{font-size:.9rem;letter-spacing:2px;}
+    .drag-date{text-align:center;}
     .remaining-info{font-size:.95rem;}
-    .legend{gap:12px;}
-    .legend-item{font-size:.85rem;}
-    .info-col{min-width:auto;max-width:100%;width:100%;align-items:center;}
-    .info-col h3{text-align:center;}
+    .legend{gap:10px;}
+    .legend-item{font-size:.82rem;}
+    .info-col{min-width:auto;max-width:90vw;}
+    .info-col h3{text-align:center;font-size:1rem;}
     .event-card{width:100%;}
     .side-panel{width:100vw;right:-100vw;}
-    .panel-toggle,.fs-btn{width:44px;height:44px;border-radius:12px;}
+    .panel-toggle,.fs-btn,.reset-btn{width:44px;height:44px;border-radius:12px;}
     .fs-btn{top:12px;left:12px;}
+    .reset-btn{top:12px;left:64px;}
     .panel-toggle{top:12px;right:12px;}
     .tab-btn{font-size:.78rem;padding:7px 4px;}
     .schedule-item{grid-template-columns:28px 1fr auto auto auto;gap:4px;padding:6px;font-size:.8rem;}
@@ -257,6 +265,7 @@
 <body>
 
 <button class="fs-btn" onclick="toggleFullscreen()" title="Tam Ekran">⛶</button>
+<button class="reset-btn" onclick="resetPositions()" title="Konumları Sıfırla">↺</button>
 <button class="panel-toggle" onclick="togglePanel()" title="Ayarlar">☰</button>
 
 <div class="side-panel" id="sidePanel">
@@ -287,16 +296,15 @@
   </div>
 </div>
 
-<div class="clock-screen">
-  <div class="top-right-panel">
-    <div class="datetime-block">
-      <div class="day-name" id="dayNameDisplay"></div>
-      <div class="date-display" id="dateDisplay"></div>
-      <div class="digital-clock" id="digitalClock">00<span class="blink">:</span>00<span class="blink">:</span>00</div>
-    </div>
-    <div class="info-col" id="eventsDisplay"></div>
+<div class="clock-screen" id="clockScreen">
+  <div class="draggable" id="dragDigital">
+    <div class="digital-clock" id="digitalClock">00<span class="blink">:</span>00<span class="blink">:</span>00</div>
   </div>
-  <div class="clock-col">
+  <div class="draggable drag-date" id="dragDate">
+    <div class="day-name" id="dayNameDisplay"></div>
+    <div class="date-display" id="dateDisplay"></div>
+  </div>
+  <div class="draggable clock-col" id="dragClock">
     <div class="status-badge" id="statusBadge">
       <span class="dot"></span>
       <span id="statusText">Program girilmedi</span>
@@ -308,6 +316,9 @@
       <div class="legend-item"><div class="legend-dot" style="background:var(--teneffus)"></div>Teneffüs</div>
       <div class="legend-item"><div class="legend-dot" style="background:var(--ogle)"></div>Öğle Arası</div>
     </div>
+  </div>
+  <div class="draggable" id="dragEvents">
+    <div class="info-col" id="eventsDisplay"></div>
   </div>
 </div>
 
@@ -561,8 +572,93 @@ function resizeClock(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   CX=size/2;CY=size/2;R=size/2-10;
 }
-window.addEventListener('resize',resizeClock);
 resizeClock();
+
+/* ─── Drag & Drop ─── */
+const DRAG_KEY='okul_saati_positions';
+const DRAG_IDS=['dragDigital','dragDate','dragClock','dragEvents'];
+
+function getDefaultPositions(){
+  const vw=window.innerWidth,vh=window.innerHeight;
+  const cs=parseFloat(canvas.style.width)||200;
+  if(vw<=768) return {
+    dragDigital:{left:(vw-180)/2,top:60},
+    dragDate:{left:(vw-160)/2,top:115},
+    dragClock:{left:(vw-cs)/2,top:165},
+    dragEvents:{left:16,top:cs+300}
+  };
+  return {
+    dragDigital:{left:vw-350,top:25},
+    dragDate:{left:vw-300,top:90},
+    dragClock:{left:(vw-cs)/2-20,top:(vh-cs)/2-60},
+    dragEvents:{left:vw-370,top:155}
+  };
+}
+
+function saveDragPositions(){
+  const pos={};
+  DRAG_IDS.forEach(id=>{const el=document.getElementById(id);
+    pos[id]={left:parseInt(el.style.left)||0,top:parseInt(el.style.top)||0};});
+  try{localStorage.setItem(DRAG_KEY,JSON.stringify(pos));}catch(e){}
+}
+
+function loadDragPositions(){
+  try{const r=localStorage.getItem(DRAG_KEY);return r?JSON.parse(r):null;}catch(e){return null;}
+}
+
+function applyPositions(pos){
+  if(!pos) pos=getDefaultPositions();
+  DRAG_IDS.forEach(id=>{const el=document.getElementById(id);
+    if(pos[id]){el.style.left=pos[id].left+'px';el.style.top=pos[id].top+'px';}});
+}
+
+function resetPositions(){
+  localStorage.removeItem(DRAG_KEY);
+  applyPositions(getDefaultPositions());
+}
+
+function clampPositions(){
+  const vw=window.innerWidth,vh=window.innerHeight;
+  DRAG_IDS.forEach(id=>{const el=document.getElementById(id);
+    let l=parseInt(el.style.left)||0,t=parseInt(el.style.top)||0;
+    l=Math.max(0,Math.min(l,vw-40));t=Math.max(0,Math.min(t,vh-40));
+    el.style.left=l+'px';el.style.top=t+'px';});
+}
+
+function onResize(){
+  resizeClock();
+  if(!loadDragPositions()) applyPositions(getDefaultPositions());
+  else clampPositions();
+}
+window.addEventListener('resize',onResize);
+
+function initDrag(){
+  applyPositions(loadDragPositions()||getDefaultPositions());
+  DRAG_IDS.forEach(id=>{
+    const el=document.getElementById(id);
+    let dragging=false,ox=0,oy=0;
+    el.addEventListener('pointerdown',e=>{
+      if(e.target.closest('button,input,select,a'))return;
+      e.preventDefault();dragging=true;
+      el.setPointerCapture(e.pointerId);el.classList.add('dragging');
+      const r=el.getBoundingClientRect();ox=e.clientX-r.left;oy=e.clientY-r.top;
+    });
+    el.addEventListener('pointermove',e=>{
+      if(!dragging)return;e.preventDefault();
+      const p=el.parentElement.getBoundingClientRect();
+      let nl=e.clientX-p.left-ox,nt=e.clientY-p.top-oy;
+      nl=Math.max(-el.offsetWidth*.4,Math.min(nl,p.width-el.offsetWidth*.6));
+      nt=Math.max(0,Math.min(nt,p.height-el.offsetHeight*.3));
+      el.style.left=nl+'px';el.style.top=nt+'px';
+    });
+    el.addEventListener('pointerup',e=>{
+      if(!dragging)return;dragging=false;
+      el.classList.remove('dragging');el.releasePointerCapture(e.pointerId);
+      saveDragPositions();
+    });
+    el.addEventListener('contextmenu',e=>e.preventDefault());
+  });
+}
 
 function timeToMinutes(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
 
@@ -749,6 +845,7 @@ function tick(ts){
 }
 
 renderDaySelector();renderSchedule();updateEventsDisplay();
+initDrag();
 requestAnimationFrame(tick);
 </script>
 </body>
