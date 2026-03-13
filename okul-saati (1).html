@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Okul Saati</title>
+<meta name="author" content="Erkan Çevik">
+<meta name="copyright" content="© 2026 Erkan Çevik - Tüm hakları saklıdır.">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ders:#4CAF50;--teneffus:#42A5F5;--ogle:#FF9800;
+    --bg:#2c3e50;--text:#ecf0f1;--text-dim:#95a5a6;
+    --panel-bg:rgba(30,40,52,0.97);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;}
+  body{
+    font-family:'Nunito',sans-serif;
+    background:linear-gradient(135deg,#1a2533 0%,#2c3e50 40%,#34495e 100%);
+    color:var(--text);display:flex;align-items:center;justify-content:center;
+  }
+
+  .clock-screen{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;position:relative;}
+
+  .main-row{display:flex;align-items:center;gap:40px;}
+
+  /* Left: clock column */
+  .clock-col{display:flex;flex-direction:column;align-items:center;gap:14px;}
+
+  .status-badge{
+    display:inline-flex;align-items:center;gap:10px;
+    padding:10px 30px;border-radius:50px;
+    font-weight:800;font-size:1.4rem;color:#fff;background:#555;
+    transition:background .5s;box-shadow:0 4px 20px rgba(0,0,0,0.3);
+  }
+  .status-badge .dot{width:12px;height:12px;border-radius:50%;background:#fff;animation:pulse 1.5s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+
+  canvas#clockCanvas{display:block;}
+
+  .date-display{
+    font-family:'Fredoka One',cursive;font-size:1.5rem;
+    color:var(--text-dim);text-align:center;letter-spacing:1px;
+  }
+  .day-name{
+    font-family:'Fredoka One',cursive;font-size:1.1rem;
+    color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:3px;
+  }
+
+  .digital-clock{
+    font-family:'Fredoka One',cursive;font-size:3.8rem;
+    letter-spacing:5px;color:#fff;text-align:center;
+    text-shadow:0 2px 12px rgba(0,0,0,0.4);
+  }
+  .digital-clock .blink{animation:blinkAnim 1s step-end infinite;}
+  @keyframes blinkAnim{0%,100%{opacity:1}50%{opacity:.2}}
+
+  .remaining-info{text-align:center;font-weight:700;font-size:1.1rem;color:var(--text-dim);min-height:26px;}
+
+  .legend{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;}
+  .legend-item{display:flex;align-items:center;gap:7px;font-weight:700;font-size:.95rem;color:var(--text-dim);}
+  .legend-dot{width:16px;height:16px;border-radius:5px;}
+
+  /* Right: info column (special days) */
+  .info-col{
+    display:flex;flex-direction:column;gap:12px;
+    min-width:280px;max-width:340px;
+  }
+  .info-col h3{
+    font-family:'Fredoka One',cursive;font-size:1.15rem;
+    color:rgba(255,255,255,0.6);letter-spacing:1px;
+  }
+  .event-card{
+    display:flex;align-items:center;gap:12px;
+    padding:12px 16px;border-radius:14px;
+    background:rgba(255,255,255,0.06);
+    border-left:4px solid rgba(255,255,255,0.15);
+    transition:all .3s;
+  }
+  .event-card:hover{background:rgba(255,255,255,0.1);}
+  .event-days{
+    font-family:'Fredoka One',cursive;font-size:1.8rem;
+    color:#fff;min-width:50px;text-align:center;
+    line-height:1;
+  }
+  .event-days small{font-size:.55rem;display:block;color:var(--text-dim);margin-top:2px;font-family:'Nunito',sans-serif;}
+  .event-name{font-weight:700;font-size:.92rem;color:rgba(255,255,255,0.85);line-height:1.3;}
+  .event-date{font-size:.78rem;color:var(--text-dim);font-weight:600;}
+  .event-today{border-left-color:#FF9800;background:rgba(255,152,0,0.12);}
+  .event-soon{border-left-color:#4CAF50;}
+  .event-card.event-today .event-days{color:#FF9800;}
+  .event-card.event-soon .event-days{color:#4CAF50;}
+
+  /* Buttons */
+  .panel-toggle{
+    position:fixed;top:20px;right:20px;z-index:100;
+    width:50px;height:50px;border-radius:14px;
+    background:var(--panel-bg);border:2px solid rgba(255,255,255,0.1);
+    color:#fff;font-size:1.4rem;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:all .3s;box-shadow:0 4px 16px rgba(0,0,0,0.3);
+  }
+  .panel-toggle:hover{background:rgba(50,60,75,0.95);transform:scale(1.05);}
+
+  .fs-btn{
+    position:fixed;top:20px;left:20px;z-index:100;
+    width:50px;height:50px;border-radius:14px;
+    background:var(--panel-bg);border:2px solid rgba(255,255,255,0.1);
+    color:#fff;font-size:1.2rem;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:all .3s;box-shadow:0 4px 16px rgba(0,0,0,0.3);
+  }
+  .fs-btn:hover{background:rgba(50,60,75,0.95);transform:scale(1.05);}
+
+  /* Side panel */
+  .side-panel{
+    position:fixed;top:0;right:-480px;width:460px;height:100vh;
+    background:var(--panel-bg);backdrop-filter:blur(16px);
+    border-left:1px solid rgba(255,255,255,0.08);
+    box-shadow:-8px 0 40px rgba(0,0,0,0.3);
+    transition:right .4s cubic-bezier(.4,0,.2,1);
+    z-index:99;display:flex;flex-direction:column;padding:20px;overflow:hidden;
+  }
+  .side-panel.open{right:0;}
+
+  /* Tabs */
+  .tab-bar{display:flex;gap:4px;margin-bottom:14px;flex-shrink:0;}
+  .tab-btn{
+    flex:1;padding:8px 6px;border:none;border-radius:10px;
+    font-family:'Nunito',sans-serif;font-weight:800;font-size:.82rem;
+    background:rgba(255,255,255,0.06);color:var(--text-dim);cursor:pointer;
+    transition:all .2s;
+  }
+  .tab-btn.active{background:rgba(255,255,255,0.15);color:#fff;}
+  .tab-btn:hover{background:rgba(255,255,255,0.1);}
+
+  .tab-content{display:none;flex:1;overflow:hidden;flex-direction:column;}
+  .tab-content.active{display:flex;}
+
+  /* Day selector */
+  .day-selector{display:flex;gap:4px;margin-bottom:10px;flex-shrink:0;}
+  .day-btn{
+    flex:1;padding:6px 2px;border:none;border-radius:8px;
+    font-family:'Nunito',sans-serif;font-weight:800;font-size:.78rem;
+    background:rgba(255,255,255,0.06);color:var(--text-dim);cursor:pointer;transition:all .2s;
+  }
+  .day-btn.active{background:var(--teneffus);color:#fff;}
+  .day-btn:hover{background:rgba(255,255,255,0.12);}
+
+  .panel-title{font-family:'Fredoka One',cursive;font-size:1.3rem;margin-bottom:12px;color:#fff;flex-shrink:0;}
+
+  .schedule-list{
+    display:flex;flex-direction:column;gap:5px;
+    flex:1;overflow-y:auto;padding-right:4px;margin-bottom:12px;
+  }
+  .schedule-list::-webkit-scrollbar{width:5px;}
+  .schedule-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:3px;}
+
+  .schedule-item{
+    display:grid;grid-template-columns:32px 1fr auto auto auto;
+    align-items:center;gap:5px;padding:7px 8px;border-radius:9px;
+    background:rgba(255,255,255,0.05);transition:all .2s;font-size:.85rem;
+  }
+  .schedule-item:hover{background:rgba(255,255,255,0.1);}
+  .schedule-item.active-period{outline:2px solid currentColor;background:rgba(255,255,255,0.12);}
+  .schedule-item.passive{opacity:.35;}
+
+  .toggle-btn{
+    width:28px;height:28px;border-radius:7px;border:2px solid rgba(255,255,255,0.2);
+    background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    font-size:.85rem;color:#fff;transition:all .2s;
+  }
+  .toggle-btn.on{background:var(--ders);border-color:var(--ders);}
+  .toggle-btn.off{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.15);color:#666;}
+
+  .schedule-item select,.schedule-item input[type="time"]{
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:.82rem;
+    border:1px solid rgba(255,255,255,0.15);border-radius:7px;padding:4px 5px;
+    background:rgba(255,255,255,0.08);color:#fff;outline:none;transition:border-color .2s;
+  }
+  .schedule-item select:focus,.schedule-item input[type="time"]:focus{border-color:var(--teneffus);}
+  .schedule-item select option{background:#2c3e50;color:#fff;}
+  .type-label{font-weight:800;padding:2px 7px;border-radius:5px;color:#fff;font-size:.75rem;white-space:nowrap;}
+
+  .btn-row{display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;}
+  .btn{
+    font-family:'Nunito',sans-serif;font-weight:800;font-size:.82rem;
+    padding:7px 14px;border:none;border-radius:9px;cursor:pointer;
+    transition:all .2s;display:inline-flex;align-items:center;gap:4px;color:#fff;
+  }
+  .btn:hover{transform:translateY(-1px);}
+  .btn-add{background:var(--ders);}
+  .btn-remove{background:#ef5350;}
+  .btn-template{background:var(--teneffus);}
+  .btn-copy{background:#9b59b6;}
+
+  .empty-state{text-align:center;padding:30px 12px;color:var(--text-dim);font-weight:600;}
+  .empty-state .emoji{font-size:2rem;margin-bottom:6px;}
+
+  /* Special days tab */
+  .event-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px;padding-right:4px;}
+  .event-edit-item{
+    display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:6px;
+    padding:8px 10px;border-radius:9px;background:rgba(255,255,255,0.05);font-size:.85rem;
+  }
+  .event-edit-item input[type="text"],.event-edit-item input[type="date"]{
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:.82rem;
+    border:1px solid rgba(255,255,255,0.15);border-radius:7px;padding:5px 7px;
+    background:rgba(255,255,255,0.08);color:#fff;outline:none;
+  }
+  .event-edit-item input:focus{border-color:var(--teneffus);}
+  .del-btn{
+    width:28px;height:28px;border-radius:7px;border:none;
+    background:rgba(239,83,80,0.2);color:#ef5350;cursor:pointer;
+    font-size:.9rem;display:flex;align-items:center;justify-content:center;
+  }
+  .del-btn:hover{background:rgba(239,83,80,0.4);}
+</style>
+</head>
+<body>
+
+<button class="fs-btn" onclick="toggleFullscreen()" title="Tam Ekran">⛶</button>
+<button class="panel-toggle" onclick="togglePanel()" title="Ayarlar">☰</button>
+
+<div class="side-panel" id="sidePanel">
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('schedule')">Ders Programı</button>
+    <button class="tab-btn" onclick="switchTab('events')">Belirli Günler</button>
+  </div>
+
+  <!-- Schedule Tab -->
+  <div class="tab-content active" id="tab-schedule">
+    <div class="day-selector" id="daySelector"></div>
+    <div class="schedule-list" id="scheduleList"></div>
+    <div class="btn-row">
+      <button class="btn btn-add" onclick="addItem()">＋ Ekle</button>
+      <button class="btn btn-remove" onclick="removeLast()">－ Sil</button>
+      <button class="btn btn-template" onclick="loadTemplate()">Örnek</button>
+      <button class="btn btn-copy" onclick="copyFromDay()">Kopyala</button>
+    </div>
+  </div>
+
+  <!-- Events Tab -->
+  <div class="tab-content" id="tab-events">
+    <div class="panel-title">Belirli Günler & Haftalar</div>
+    <div class="event-list" id="eventList"></div>
+    <div class="btn-row">
+      <button class="btn btn-add" onclick="addEvent()">＋ Yeni Gün Ekle</button>
+    </div>
+  </div>
+</div>
+
+<div class="clock-screen">
+  <div class="main-row">
+    <div class="clock-col">
+      <div class="status-badge" id="statusBadge">
+        <span class="dot"></span>
+        <span id="statusText">Program girilmedi</span>
+      </div>
+      <canvas id="clockCanvas"></canvas>
+      <div class="day-name" id="dayNameDisplay"></div>
+      <div class="date-display" id="dateDisplay"></div>
+      <div class="digital-clock" id="digitalClock">00<span class="blink">:</span>00<span class="blink">:</span>00</div>
+      <div class="remaining-info" id="remainingInfo"></div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--ders)"></div>Ders</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--teneffus)"></div>Teneffüs</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--ogle)"></div>Öğle Arası</div>
+      </div>
+    </div>
+    <div class="info-col" id="eventsDisplay"></div>
+  </div>
+</div>
+
+<div style="position:fixed;bottom:12px;left:0;right:0;text-align:center;
+  font-size:.8rem;color:rgba(255,255,255,0.25);font-weight:600;
+  letter-spacing:.5px;z-index:10;pointer-events:none;">
+  © 2026 Erkan Çevik — Tüm hakları saklıdır.
+</div>
+
+<script>
+const TYPES = {
+  ders:{label:'Ders',color:'#4CAF50'},
+  teneffus:{label:'Teneffüs',color:'#42A5F5'},
+  ogle:{label:'Öğle Arası',color:'#FF9800'},
+};
+const DAY_NAMES = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+const DAY_SHORT = ['Pzr','Pzt','Sal','Çar','Per','Cum','Cts'];
+const MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+
+// Per-day schedules: keys 1-5 (Mon-Fri)
+let schedules = {1:[],2:[],3:[],4:[],5:[]};
+let selectedDay = new Date().getDay();
+if(selectedDay===0||selectedDay===6) selectedDay=1;
+
+// Special events — defaults
+const DEFAULT_EVENTS = [
+  {name:'Yılbaşı',date:'2026-01-01'},
+  {name:'23 Nisan Ulusal Egemenlik ve Çocuk Bayramı',date:'2026-04-23'},
+  {name:'19 Mayıs Atatürk\'ü Anma, Gençlik ve Spor Bayramı',date:'2026-05-19'},
+  {name:'30 Ağustos Zafer Bayramı',date:'2026-08-30'},
+  {name:'29 Ekim Cumhuriyet Bayramı',date:'2026-10-29'},
+  {name:'Öğretmenler Günü',date:'2026-11-24'},
+  {name:'Yarıyıl Tatili (Sömestr)',date:'2027-01-22'},
+  {name:'Karne Günü',date:'2026-06-12'},
+];
+let specialEvents = [];
+
+// ── localStorage Save / Load ──
+const STORAGE_KEY = 'okul_saati_data';
+
+function saveData() {
+  try {
+    const data = { schedules, specialEvents };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch(e) { console.warn('Kaydetme hatası:', e); }
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data.schedules) schedules = data.schedules;
+      if (data.specialEvents) specialEvents = data.specialEvents;
+    } else {
+      // İlk açılış: varsayılan belirli günleri yükle
+      specialEvents = JSON.parse(JSON.stringify(DEFAULT_EVENTS));
+    }
+  } catch(e) {
+    console.warn('Yükleme hatası:', e);
+    specialEvents = JSON.parse(JSON.stringify(DEFAULT_EVENTS));
+  }
+}
+
+loadData();
+
+/* ─── Panel & Tabs ─── */
+function togglePanel(){document.getElementById('sidePanel').classList.toggle('open');}
+function toggleFullscreen(){
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+}
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===(tab==='schedule'?0:1)));
+  document.getElementById('tab-schedule').classList.toggle('active',tab==='schedule');
+  document.getElementById('tab-events').classList.toggle('active',tab==='events');
+  if(tab==='events') renderEvents();
+}
+
+/* ─── Day Selector ─── */
+function renderDaySelector(){
+  const cont=document.getElementById('daySelector');
+  cont.innerHTML=[1,2,3,4,5].map(d=>
+    `<button class="day-btn ${d===selectedDay?'active':''}" onclick="selectDay(${d})">${DAY_SHORT[d]}</button>`
+  ).join('');
+}
+function selectDay(d){selectedDay=d;renderDaySelector();renderSchedule();}
+
+/* ─── Schedule ─── */
+function getSchedule(){return schedules[selectedDay]||[];}
+function setSchedule(arr){schedules[selectedDay]=arr;}
+
+function renderSchedule(){
+  const list=document.getElementById('scheduleList');
+  const sched=getSchedule();
+  if(sched.length===0){
+    list.innerHTML=`<div class="empty-state"><div class="emoji">📚</div><div>${DAY_SHORT[selectedDay]} programı boş.<br>Ekle veya Kopyala ile doldurun.</div></div>`;
+    return;
+  }
+  list.innerHTML=sched.map((item,i)=>{
+    const t=TYPES[item.type];
+    return `<div class="schedule-item ${item.active?'':'passive'}" id="sitem-${i}">
+      <button class="toggle-btn ${item.active?'on':'off'}" onclick="toggleActive(${i})">${item.active?'✓':'—'}</button>
+      <select onchange="updateType(${i},this.value)">
+        ${Object.keys(TYPES).map(k=>`<option value="${k}" ${k===item.type?'selected':''}>${TYPES[k].label}</option>`).join('')}
+      </select>
+      <input type="time" value="${item.start}" onchange="updateStart(${i},this.value)">
+      <input type="time" value="${item.end}" onchange="updateEnd(${i},this.value)">
+      <span class="type-label" style="background:${t.color}">${t.label}</span>
+    </div>`;
+  }).join('');
+}
+
+function addItem(){
+  const sched=getSchedule();
+  let start='08:00',end='08:40';
+  if(sched.length>0){
+    start=sched[sched.length-1].end;
+    const [h,m]=start.split(':').map(Number);
+    const tot=h*60+m+40;
+    end=String(Math.floor(tot/60)).padStart(2,'0')+':'+String(tot%60).padStart(2,'0');
+  }
+  sched.push({type:'ders',start,end,active:true});
+  renderSchedule();saveData();
+}
+function removeLast(){const s=getSchedule();s.pop();renderSchedule();saveData();}
+function updateType(i,v){getSchedule()[i].type=v;renderSchedule();saveData();}
+function updateStart(i,v){getSchedule()[i].start=v;saveData();}
+function updateEnd(i,v){getSchedule()[i].end=v;saveData();}
+function toggleActive(i){const s=getSchedule();s[i].active=!s[i].active;renderSchedule();saveData();}
+
+function copyFromDay(){
+  const days=[1,2,3,4,5].filter(d=>d!==selectedDay&&schedules[d].length>0);
+  if(days.length===0){alert('Kopyalanacak başka gün yok.');return;}
+  const names=days.map(d=>DAY_SHORT[d]).join(', ');
+  const src=prompt(`Hangi günden kopyalansın? (${names})`,'');
+  if(!src) return;
+  const found=days.find(d=>DAY_SHORT[d].toLowerCase()===src.trim().toLowerCase());
+  if(!found){alert('Gün bulunamadı.');return;}
+  schedules[selectedDay]=JSON.parse(JSON.stringify(schedules[found]));
+  renderSchedule();saveData();
+}
+
+function loadTemplate(){
+  const base=[
+    {type:'ders',start:'08:30',end:'09:10',active:true},
+    {type:'teneffus',start:'09:10',end:'09:20',active:true},
+    {type:'ders',start:'09:20',end:'10:00',active:true},
+    {type:'teneffus',start:'10:00',end:'10:10',active:true},
+    {type:'ders',start:'10:10',end:'10:50',active:true},
+    {type:'teneffus',start:'10:50',end:'11:00',active:true},
+    {type:'ders',start:'11:00',end:'11:40',active:true},
+    {type:'ogle',start:'11:40',end:'12:30',active:true},
+    {type:'ders',start:'12:30',end:'13:10',active:true},
+    {type:'teneffus',start:'13:10',end:'13:20',active:true},
+    {type:'ders',start:'13:20',end:'14:00',active:true},
+    {type:'teneffus',start:'14:00',end:'14:10',active:true},
+    {type:'ders',start:'14:10',end:'14:50',active:true},
+  ];
+  // Cuma: 5 ders (kısa gün)
+  const friday=[
+    {type:'ders',start:'08:30',end:'09:10',active:true},
+    {type:'teneffus',start:'09:10',end:'09:20',active:true},
+    {type:'ders',start:'09:20',end:'10:00',active:true},
+    {type:'teneffus',start:'10:00',end:'10:10',active:true},
+    {type:'ders',start:'10:10',end:'10:50',active:true},
+    {type:'teneffus',start:'10:50',end:'11:00',active:true},
+    {type:'ders',start:'11:00',end:'11:40',active:true},
+    {type:'teneffus',start:'11:40',end:'11:50',active:true},
+    {type:'ders',start:'11:50',end:'12:30',active:true},
+  ];
+  for(let d=1;d<=4;d++) schedules[d]=JSON.parse(JSON.stringify(base));
+  schedules[5]=JSON.parse(JSON.stringify(friday));
+  renderDaySelector();renderSchedule();saveData();
+}
+
+/* ─── Special Events ─── */
+function renderEvents(){
+  const list=document.getElementById('eventList');
+  list.innerHTML=specialEvents.map((ev,i)=>
+    `<div class="event-edit-item">
+      <input type="text" value="${ev.name}" onchange="specialEvents[${i}].name=this.value;saveData();updateEventsDisplay();" placeholder="Gün adı">
+      <input type="date" value="${ev.date}" onchange="specialEvents[${i}].date=this.value;saveData();updateEventsDisplay();">
+      <button class="del-btn" onclick="specialEvents.splice(${i},1);saveData();renderEvents();updateEventsDisplay();">✕</button>
+    </div>`
+  ).join('');
+}
+function addEvent(){
+  specialEvents.push({name:'',date:''});
+  renderEvents();saveData();
+}
+
+function updateEventsDisplay(){
+  const cont=document.getElementById('eventsDisplay');
+  const today=new Date();today.setHours(0,0,0,0);
+
+  const upcoming=specialEvents
+    .filter(ev=>ev.date&&ev.name)
+    .map(ev=>{
+      const d=new Date(ev.date+'T00:00:00');
+      let diff=Math.ceil((d-today)/(1000*60*60*24));
+      // If past this year, try next year
+      if(diff<0){
+        const next=new Date(d);next.setFullYear(next.getFullYear()+1);
+        diff=Math.ceil((next-today)/(1000*60*60*24));
+        ev._displayDate=next;
+      } else {
+        ev._displayDate=d;
+      }
+      return {...ev,daysLeft:diff};
+    })
+    .filter(ev=>ev.daysLeft>=0&&ev.daysLeft<=120)
+    .sort((a,b)=>a.daysLeft-b.daysLeft)
+    .slice(0,6);
+
+  if(upcoming.length===0){
+    cont.innerHTML='<h3>Yaklaşan Günler</h3><div style="color:var(--text-dim);font-size:.9rem;margin-top:12px;">Yakın tarihte belirli gün yok.</div>';
+    return;
+  }
+
+  cont.innerHTML=`<h3>Yaklaşan Günler</h3>`+upcoming.map(ev=>{
+    const cls=ev.daysLeft===0?'event-today':ev.daysLeft<=7?'event-soon':'';
+    const dayText=ev.daysLeft===0?'BUGÜN':ev.daysLeft;
+    const dayLabel=ev.daysLeft===0?'':'gün';
+    const dd=ev._displayDate;
+    const dateStr=`${dd.getDate()} ${MONTHS[dd.getMonth()]}`;
+    return `<div class="event-card ${cls}">
+      <div class="event-days">${dayText}<small>${dayLabel}</small></div>
+      <div><div class="event-name">${ev.name}</div><div class="event-date">${dateStr}</div></div>
+    </div>`;
+  }).join('');
+}
+
+/* ─── Canvas ─── */
+const canvas=document.getElementById('clockCanvas');
+const ctx=canvas.getContext('2d');
+let CX,CY,R;
+
+function resizeClock(){
+  const vh=window.innerHeight,vw=window.innerWidth;
+  const size=Math.min(vh*0.58,vw*0.38);
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=size*dpr;canvas.height=size*dpr;
+  canvas.style.width=size+'px';canvas.style.height=size+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  CX=size/2;CY=size/2;R=size/2-10;
+}
+window.addEventListener('resize',resizeClock);
+resizeClock();
+
+function timeToMinutes(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
+
+function getTodaySchedule(){
+  const dow=new Date().getDay();
+  return schedules[dow]||[];
+}
+
+function findCurrentPeriod(nowMins){
+  const sched=getTodaySchedule();
+  for(const item of sched){
+    if(!item.active)continue;
+    const s=timeToMinutes(item.start),e=timeToMinutes(item.end);
+    if(nowMins>=s&&nowMins<e)return item;
+  }
+  return null;
+}
+
+// Transition
+let prevPeriod=null;
+let transition={active:false,progress:0,fromType:null,fromStart:0,fromTotal:0};
+const TRANSITION_DURATION=800;let transitionStartTime=0;
+function easeOutCubic(t){return 1-Math.pow(1-t,3);}
+function easeInCubic(t){return t*t*t;}
+
+/* ─── Drawing ─── */
+function drawFace(){
+  ctx.save();
+  ctx.shadowColor='rgba(0,0,0,0.5)';ctx.shadowBlur=40;ctx.shadowOffsetX=4;ctx.shadowOffsetY=6;
+  ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);ctx.fillStyle='#555';ctx.fill();
+  ctx.restore();
+
+  const bezel=ctx.createLinearGradient(CX-R,CY-R,CX+R,CY+R);
+  bezel.addColorStop(0,'#c0c0c0');bezel.addColorStop(.2,'#e8e8e8');
+  bezel.addColorStop(.45,'#a0a0a0');bezel.addColorStop(.55,'#b8b8b8');
+  bezel.addColorStop(.8,'#d8d8d8');bezel.addColorStop(1,'#888');
+  ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);ctx.fillStyle=bezel;ctx.fill();
+
+  const bi=ctx.createRadialGradient(CX,CY,R-20,CX,CY,R);
+  bi.addColorStop(0,'rgba(0,0,0,0.18)');bi.addColorStop(.7,'rgba(0,0,0,0.04)');bi.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);ctx.fillStyle=bi;ctx.fill();
+
+  const sh=ctx.createRadialGradient(CX-R*.3,CY-R*.3,10,CX,CY,R);
+  sh.addColorStop(0,'rgba(255,255,255,0.45)');sh.addColorStop(.35,'rgba(255,255,255,0)');
+  ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);ctx.fillStyle=sh;ctx.fill();
+
+  const fR=R-R*.055;
+  const fg=ctx.createRadialGradient(CX,CY-fR*.1,10,CX,CY,fR);
+  fg.addColorStop(0,'#fff');fg.addColorStop(.85,'#fafafa');fg.addColorStop(1,'#efefef');
+  ctx.beginPath();ctx.arc(CX,CY,fR,0,Math.PI*2);ctx.fillStyle=fg;ctx.fill();
+
+  const ie=ctx.createRadialGradient(CX,CY,fR-14,CX,CY,fR);
+  ie.addColorStop(0,'rgba(0,0,0,0)');ie.addColorStop(1,'rgba(0,0,0,0.07)');
+  ctx.beginPath();ctx.arc(CX,CY,fR,0,Math.PI*2);ctx.fillStyle=ie;ctx.fill();
+
+  ctx.beginPath();ctx.arc(CX,CY,fR*.88,0,Math.PI*2);ctx.strokeStyle='rgba(0,0,0,0.05)';ctx.lineWidth=1;ctx.stroke();
+  ctx.beginPath();ctx.arc(CX,CY,fR*.62,0,Math.PI*2);ctx.strokeStyle='rgba(0,0,0,0.035)';ctx.lineWidth=.8;ctx.stroke();
+  ctx.beginPath();ctx.arc(CX,CY,fR*.12,0,Math.PI*2);ctx.strokeStyle='rgba(0,0,0,0.05)';ctx.lineWidth=.8;ctx.stroke();
+}
+
+function drawPieSector(startMin,totalMins,color,opacity,scale){
+  const fR=R-R*.055;
+  const sa=(startMin/60)*Math.PI*2-Math.PI/2;
+  const ea=((startMin+totalMins)/60)*Math.PI*2-Math.PI/2;
+  const ma=(sa+ea)/2;
+  const sr=(fR-2)*scale;
+  const od=(1-scale)*8;
+  const cx=CX+Math.cos(ma)*od,cy=CY+Math.sin(ma)*od;
+  ctx.save();ctx.globalAlpha=opacity;
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,sr,sa,ea);ctx.closePath();
+  ctx.fillStyle=color+'88';ctx.fill();
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(sa)*sr,cy+Math.sin(sa)*sr);
+  ctx.strokeStyle=color+'AA';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(ea)*sr,cy+Math.sin(ea)*sr);
+  ctx.strokeStyle=color+'AA';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.restore();
+}
+
+function drawCurrentSector(now,ts){
+  const nm=now.getHours()*60+now.getMinutes();
+  const cur=findCurrentPeriod(nm);
+  if(cur!==prevPeriod){
+    if(prevPeriod){const ps=timeToMinutes(prevPeriod.start),pe=timeToMinutes(prevPeriod.end);
+      transition={active:true,progress:0,fromType:prevPeriod.type,fromStart:ps%60,fromTotal:pe-ps};}
+    else transition={active:true,progress:0,fromType:null,fromStart:0,fromTotal:0};
+    transitionStartTime=ts;prevPeriod=cur;
+  }
+  if(transition.active){transition.progress=Math.min((ts-transitionStartTime)/TRANSITION_DURATION,1);if(transition.progress>=1)transition.active=false;}
+  if(transition.active&&transition.fromType){
+    const oc=TYPES[transition.fromType].color,f=1-easeInCubic(transition.progress),sk=1-easeInCubic(transition.progress)*.15;
+    drawPieSector(transition.fromStart,transition.fromTotal,oc,f*.55,sk);
+  }
+  if(cur){const s=timeToMinutes(cur.start),e=timeToMinutes(cur.end);
+    const g=transition.active?easeOutCubic(transition.progress):1;
+    drawPieSector(s%60,e-s,TYPES[cur.type].color,g*.55,.85+g*.15);
+  }
+}
+
+function drawNumbers(){
+  const fR=R-R*.055;ctx.textAlign='center';ctx.textBaseline='middle';
+  for(let i=1;i<=12;i++){
+    const a=(i/12)*Math.PI*2-Math.PI/2;
+    const x=CX+Math.cos(a)*(fR*.82),y=CY+Math.sin(a)*(fR*.82);
+    const sz=Math.round(fR*.11);
+    ctx.font=`800 ${sz}px Nunito`;
+    ctx.fillStyle='rgba(0,0,0,0.08)';ctx.fillText(i,x+1,y+2);
+    ctx.fillStyle='#1a1a1a';ctx.fillText(i,x,y);
+  }
+  for(let i=0;i<60;i++){
+    const a=(i/60)*Math.PI*2-Math.PI/2,ih=i%5===0;
+    const oR=fR-2,iR=ih?fR*.9:fR*.95;
+    ctx.beginPath();ctx.moveTo(CX+Math.cos(a)*iR,CY+Math.sin(a)*iR);
+    ctx.lineTo(CX+Math.cos(a)*oR,CY+Math.sin(a)*oR);
+    ctx.strokeStyle=ih?'#1a1a1a':'#bbb';ctx.lineWidth=ih?3:1.2;
+    ctx.lineCap='round';ctx.stroke();ctx.lineCap='butt';
+  }
+}
+
+function drawHand(a,l,w,c){
+  ctx.save();ctx.shadowColor='rgba(0,0,0,0.2)';ctx.shadowBlur=8;ctx.shadowOffsetX=2;ctx.shadowOffsetY=3;
+  ctx.beginPath();ctx.moveTo(CX-Math.cos(a)*20,CY-Math.sin(a)*20);
+  ctx.lineTo(CX+Math.cos(a)*l,CY+Math.sin(a)*l);
+  ctx.strokeStyle=c;ctx.lineWidth=w;ctx.lineCap='round';ctx.stroke();ctx.restore();
+}
+
+function drawHands(now){
+  const fR=R-R*.055,h=now.getHours()%12,m=now.getMinutes(),s=now.getSeconds();
+  drawHand(((h+m/60)/12)*Math.PI*2-Math.PI/2,fR*.45,Math.max(fR*.028,4),'#1a1a1a');
+  drawHand(((m+s/60)/60)*Math.PI*2-Math.PI/2,fR*.68,Math.max(fR*.018,3),'#333');
+  drawHand((s/60)*Math.PI*2-Math.PI/2,fR*.78,2,'#d32f2f');
+  const cg=ctx.createRadialGradient(CX-2,CY-2,1,CX,CY,fR*.035);
+  cg.addColorStop(0,'#666');cg.addColorStop(.5,'#333');cg.addColorStop(1,'#111');
+  ctx.beginPath();ctx.arc(CX,CY,fR*.035,0,Math.PI*2);ctx.fillStyle=cg;ctx.fill();
+  ctx.beginPath();ctx.arc(CX-1,CY-1,fR*.015,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,0.3)';ctx.fill();
+}
+
+function updateDateDisplay(now){
+  document.getElementById('dayNameDisplay').textContent=DAY_NAMES[now.getDay()];
+  document.getElementById('dateDisplay').textContent=`${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+}
+
+function updateStatus(now){
+  const badge=document.getElementById('statusBadge'),text=document.getElementById('statusText'),info=document.getElementById('remainingInfo');
+  const nm=now.getHours()*60+now.getMinutes(),ns=nm*60+now.getSeconds();
+  const cur=findCurrentPeriod(nm);
+  document.querySelectorAll('.schedule-item').forEach(el=>{el.classList.remove('active-period');el.style.color='';});
+
+  const todaySched=getTodaySchedule();
+
+  if(cur){
+    const t=TYPES[cur.type];badge.style.background=t.color;text.textContent=t.label;
+    const idx=todaySched.indexOf(cur);
+    const el=document.getElementById('sitem-'+idx);
+    if(el){el.classList.add('active-period');el.style.color=t.color;}
+    const rem=timeToMinutes(cur.end)*60-ns;
+    if(rem>0){info.textContent=`${t.label} bitimine ${Math.floor(rem/60)} dk ${rem%60} sn kaldı`;info.style.color=t.color;}
+    else info.textContent='';
+  } else if(todaySched.filter(s=>s.active).length>0){
+    badge.style.background='#555';text.textContent='Program dışı';
+    const next=todaySched.find(s=>s.active&&timeToMinutes(s.start)>nm);
+    if(next){info.textContent=`Sonraki: ${TYPES[next.type].label} — ${timeToMinutes(next.start)-nm} dk sonra`;info.style.color=TYPES[next.type].color;}
+    else{info.textContent='Bugünkü program bitti';info.style.color='#95a5a6';}
+  } else {
+    badge.style.background='#555';text.textContent='Program girilmedi';info.textContent='';
+  }
+}
+
+function updateDigital(now){
+  const h=String(now.getHours()).padStart(2,'0'),m=String(now.getMinutes()).padStart(2,'0'),s=String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('digitalClock').innerHTML=`${h}<span class="blink">:</span>${m}<span class="blink">:</span>${s}`;
+}
+
+let lastEventsUpdate=0;
+function tick(ts){
+  if(!ts)ts=performance.now();
+  const now=new Date();
+  const size=parseFloat(canvas.style.width);
+  ctx.clearRect(0,0,size,size);
+  drawFace();drawCurrentSector(now,ts);drawNumbers();drawHands(now);
+  updateDigital(now);updateStatus(now);updateDateDisplay(now);
+  // Update events display every 60s
+  if(ts-lastEventsUpdate>60000||lastEventsUpdate===0){updateEventsDisplay();lastEventsUpdate=ts;}
+  requestAnimationFrame(tick);
+}
+
+renderDaySelector();renderSchedule();updateEventsDisplay();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
