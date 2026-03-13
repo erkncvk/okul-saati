@@ -23,7 +23,12 @@
 
   .clock-screen{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;position:relative;}
 
-  .main-row{display:flex;align-items:center;gap:40px;}
+  .top-right-panel{
+    position:absolute;top:20px;right:80px;
+    display:flex;flex-direction:column;align-items:flex-end;gap:16px;
+    max-width:340px;z-index:10;
+  }
+  .datetime-block{text-align:right;}
 
   /* Left: clock column */
   .clock-col{display:flex;flex-direction:column;align-items:center;gap:14px;}
@@ -40,17 +45,17 @@
   canvas#clockCanvas{display:block;}
 
   .date-display{
-    font-family:'Fredoka One',cursive;font-size:1.5rem;
-    color:var(--text-dim);text-align:center;letter-spacing:1px;
+    font-family:'Fredoka One',cursive;font-size:1.3rem;
+    color:var(--text-dim);letter-spacing:1px;
   }
   .day-name{
-    font-family:'Fredoka One',cursive;font-size:1.1rem;
+    font-family:'Fredoka One',cursive;font-size:1rem;
     color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:3px;
   }
 
   .digital-clock{
-    font-family:'Fredoka One',cursive;font-size:3.8rem;
-    letter-spacing:5px;color:#fff;text-align:center;
+    font-family:'Fredoka One',cursive;font-size:2.8rem;
+    letter-spacing:5px;color:#fff;
     text-shadow:0 2px 12px rgba(0,0,0,0.4);
   }
   .digital-clock .blink{animation:blinkAnim 1s step-end infinite;}
@@ -64,8 +69,8 @@
 
   /* Right: info column (special days) */
   .info-col{
-    display:flex;flex-direction:column;gap:12px;
-    min-width:280px;max-width:340px;
+    display:flex;flex-direction:column;gap:10px;
+    min-width:260px;max-width:320px;
   }
   .info-col h3{
     font-family:'Fredoka One',cursive;font-size:1.15rem;
@@ -216,6 +221,37 @@
     font-size:.9rem;display:flex;align-items:center;justify-content:center;
   }
   .del-btn:hover{background:rgba(239,83,80,0.4);}
+
+  /* ── Responsive ── */
+  @media(max-width:768px){
+    html,body{height:auto;overflow-y:auto;}
+    .clock-screen{
+      flex-direction:column;height:auto;min-height:100vh;
+      padding:60px 16px 80px;gap:16px;
+    }
+    .top-right-panel{
+      position:static;align-items:center;width:100%;max-width:100%;order:2;
+    }
+    .datetime-block{text-align:center;}
+    .clock-col{order:1;}
+    .status-badge{font-size:1rem;padding:8px 20px;}
+    .digital-clock{font-size:2rem;}
+    .date-display{font-size:1.1rem;}
+    .day-name{font-size:.9rem;}
+    .remaining-info{font-size:.95rem;}
+    .legend{gap:12px;}
+    .legend-item{font-size:.85rem;}
+    .info-col{min-width:auto;max-width:100%;width:100%;align-items:center;}
+    .info-col h3{text-align:center;}
+    .event-card{width:100%;}
+    .side-panel{width:100vw;right:-100vw;}
+    .panel-toggle,.fs-btn{width:44px;height:44px;border-radius:12px;}
+    .fs-btn{top:12px;left:12px;}
+    .panel-toggle{top:12px;right:12px;}
+    .tab-btn{font-size:.78rem;padding:7px 4px;}
+    .schedule-item{grid-template-columns:28px 1fr auto auto auto;gap:4px;padding:6px;font-size:.8rem;}
+    .schedule-item select,.schedule-item input[type="time"]{font-size:.78rem;padding:3px 4px;}
+  }
 </style>
 </head>
 <body>
@@ -252,24 +288,26 @@
 </div>
 
 <div class="clock-screen">
-  <div class="main-row">
-    <div class="clock-col">
-      <div class="status-badge" id="statusBadge">
-        <span class="dot"></span>
-        <span id="statusText">Program girilmedi</span>
-      </div>
-      <canvas id="clockCanvas"></canvas>
+  <div class="top-right-panel">
+    <div class="datetime-block">
       <div class="day-name" id="dayNameDisplay"></div>
       <div class="date-display" id="dateDisplay"></div>
       <div class="digital-clock" id="digitalClock">00<span class="blink">:</span>00<span class="blink">:</span>00</div>
-      <div class="remaining-info" id="remainingInfo"></div>
-      <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--ders)"></div>Ders</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--teneffus)"></div>Teneffüs</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--ogle)"></div>Öğle Arası</div>
-      </div>
     </div>
     <div class="info-col" id="eventsDisplay"></div>
+  </div>
+  <div class="clock-col">
+    <div class="status-badge" id="statusBadge">
+      <span class="dot"></span>
+      <span id="statusText">Program girilmedi</span>
+    </div>
+    <canvas id="clockCanvas"></canvas>
+    <div class="remaining-info" id="remainingInfo"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--ders)"></div>Ders</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--teneffus)"></div>Teneffüs</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--ogle)"></div>Öğle Arası</div>
+    </div>
   </div>
 </div>
 
@@ -306,6 +344,11 @@ const DEFAULT_EVENTS = [
   {name:'Karne Günü',date:'2026-06-12'},
 ];
 let specialEvents = [];
+
+// ── Yardımcı ──
+function escapeHTML(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 
 // ── localStorage Save / Load ──
 const STORAGE_KEY = 'okul_saati_data';
@@ -451,7 +494,7 @@ function renderEvents(){
   const list=document.getElementById('eventList');
   list.innerHTML=specialEvents.map((ev,i)=>
     `<div class="event-edit-item">
-      <input type="text" value="${ev.name}" onchange="specialEvents[${i}].name=this.value;saveData();updateEventsDisplay();" placeholder="Gün adı">
+      <input type="text" value="${escapeHTML(ev.name)}" onchange="specialEvents[${i}].name=this.value;saveData();updateEventsDisplay();" placeholder="Gün adı">
       <input type="date" value="${ev.date}" onchange="specialEvents[${i}].date=this.value;saveData();updateEventsDisplay();">
       <button class="del-btn" onclick="specialEvents.splice(${i},1);saveData();renderEvents();updateEventsDisplay();">✕</button>
     </div>`
@@ -498,7 +541,7 @@ function updateEventsDisplay(){
     const dateStr=`${dd.getDate()} ${MONTHS[dd.getMonth()]}`;
     return `<div class="event-card ${cls}">
       <div class="event-days">${dayText}<small>${dayLabel}</small></div>
-      <div><div class="event-name">${ev.name}</div><div class="event-date">${dateStr}</div></div>
+      <div><div class="event-name">${escapeHTML(ev.name)}</div><div class="event-date">${dateStr}</div></div>
     </div>`;
   }).join('');
 }
@@ -510,7 +553,8 @@ let CX,CY,R;
 
 function resizeClock(){
   const vh=window.innerHeight,vw=window.innerWidth;
-  const size=Math.min(vh*0.58,vw*0.38);
+  const isMobile=vw<=768;
+  const size=isMobile?Math.min(vh*0.38,vw*0.7):Math.min(vh*0.58,vw*0.38);
   const dpr=window.devicePixelRatio||1;
   canvas.width=size*dpr;canvas.height=size*dpr;
   canvas.style.width=size+'px';canvas.style.height=size+'px';
